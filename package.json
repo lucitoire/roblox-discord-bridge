@@ -1,0 +1,12 @@
+{
+  "name": "roblox-discord-bridge",
+  "version": "1.0.0",
+  "description": "Bridge between Discord and Roblox ProfileStore",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
