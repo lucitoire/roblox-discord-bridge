@@ -10,7 +10,7 @@ const API_KEY = process.env.ROBLOX_API_KEY;
 const TOPIC_NAME = "DiscordAdminCommands";
 
 // This is the URL endpoint your Discord bot will send requests to
-app.post('/api/give-item', async (req, res) => {
+app.post('/api/give', async (req, res) => {
     try {
         const { userId, dataType, quantity } = req.body;
 
