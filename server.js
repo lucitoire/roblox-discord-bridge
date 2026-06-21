@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-
+//Updateev2
 // This allows your server to read JSON data sent by your Discord Bot
 app.use(express.json());
 
