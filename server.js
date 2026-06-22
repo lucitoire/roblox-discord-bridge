@@ -6,43 +6,61 @@ app.post('/api/give', async (req, res) => {
             return res.status(400).json({ error: "Missing required fields" });
         }
 
-        // ProfileStore puts global messages into an OrderedDataStore named: "M_" + your ProfileStore name
-        // Based on your code, your live profile store name is "Spellbound_V1"
+        // Change this to match your live profile store name ("Spellbound_V1")
         const PROFILE_STORE_NAME = "Spellbound_V1"; 
-        const ORDERED_DATASTORE_NAME = `M_${PROFILE_STORE_NAME}`;
-        
-        // ProfileStore expects the key to look exactly like this for global messages
-        const ENTRY_KEY = `U_${userId}`;
+        const ENTRY_KEY = `Player_${userId}`;
 
-        // The payload ProfileStore expects must be JSON encoded inside an array
-        const messagePayload = [
-            {
-                DataType: dataType,
-                Quantity: Number(quantity)
-            }
-        ];
+        const robloxUrl = `https://apis.roblox.com/datastores/v1/universes/${UNIVERSE_ID}/standard-datastores/datastore/entries/entry?datastoreName=${PROFILE_STORE_NAME}&entryKey=${ENTRY_KEY}`;
 
-        // Send directly to the ProfileStore global message queue via Open Cloud OrderedDataStores
-        const robloxResponse = await fetch(
-            `https://apis.roblox.com/datastores/v1/universes/${UNIVERSE_ID}/ordered-datastores/${ORDERED_DATASTORE_NAME}/scopes/global/entries/${ENTRY_KEY}`,
-            {
+        // 1. Fetch the user's actual ProfileStore profile
+        const getResponse = await fetch(robloxUrl, {
+            headers: { 'x-api-key': API_KEY }
+        });
+
+        let profileWrapper = { Data: { Files: [], Inbox: [] } };
+
+        if (getResponse.ok) {
+            profileWrapper = await getResponse.json();
+        } else if (getResponse.status !== 404) {
+            // If it's not a 404 (new player), something else went wrong
+            const errorText = await getResponse.text();
+            return res.status(500).json({ error: "Failed to fetch profile", details: errorText });
+        }
+
+        // 2. Ensure the Inbox array exists in their data
+        if (!profileWrapper.Data.Inbox) {
+            profileWrapper.Data.Inbox = [];
+        }
+
+        // 3. Push the new reward into their ProfileStore Inbox
+        profileWrapper.Data.Inbox.push({
+            DataType: dataType,
+            Quantity: Number(quantity)
+        });
+
+        // 4. Save the updated Profile back to Roblox
+        const saveResponse = await fetch(robloxUrl, {
+            method: 'POST',
+            headers: {
+                'x-api-key': API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(profileWrapper)
+        });
+
+        if (saveResponse.ok) {
+            // 5. Fire a standard MessagingService topic just in case they ARE online
+            // so the server knows to look at their profile data immediately
+            fetch(`https://apis.roblox.com/messaging-service/v1/universes/${UNIVERSE_ID}/topics/DiscordAdminCommands`, {
                 method: 'POST',
-                headers: {
-                    'x-api-key': API_KEY,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    value: JSON.stringify(messagePayload)
-                })
-            }
-        );
+                headers: { 'x-api-key': API_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: JSON.stringify({ TargetUserId: userId }) })
+            }).catch(() => {});
 
-        if (robloxResponse.ok) {
-            return res.status(200).json({ success: true, message: "Gift queued in ProfileStore successfully." });
+            return res.status(200).json({ success: true, message: "Gift injected into ProfileStore successfully." });
         } else {
-            const errorText = await robloxResponse.text();
-            console.error("Roblox API Error:", errorText);
-            return res.status(500).json({ error: "ProfileStore rejected the message", details: errorText });
+            const errorText = await saveResponse.text();
+            return res.status(500).json({ error: "Failed to write back to ProfileStore", details: errorText });
         }
 
     } catch (error) {
