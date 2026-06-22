@@ -38,7 +38,7 @@ app.post('/api/give', async (req, res) => {
             Quantity: Number(quantity)
         });
 
-        // 4. Save the updated Profile back to Roblox
+       // 4. Save the updated Profile back to Roblox
         const saveResponse = await fetch(robloxUrl, {
             method: 'POST',
             headers: {
@@ -50,11 +50,17 @@ app.post('/api/give', async (req, res) => {
 
         if (saveResponse.ok) {
             // 5. Fire a standard MessagingService topic just in case they ARE online
-            // so the server knows to look at their profile data immediately
+            // REPLACE YOUR OLD FETCH CALL WITH THIS ONE:
             fetch(`https://apis.roblox.com/messaging-service/v1/universes/${UNIVERSE_ID}/topics/DiscordAdminCommands`, {
                 method: 'POST',
                 headers: { 'x-api-key': API_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: JSON.stringify({ TargetUserId: userId }) })
+                body: JSON.stringify({ 
+                    message: JSON.stringify({ 
+                        TargetUserId: userId, 
+                        DataType: dataType, 
+                        Quantity: quantity 
+                    }) 
+                })
             }).catch(() => {});
 
             return res.status(200).json({ success: true, message: "Gift injected into ProfileStore successfully." });
