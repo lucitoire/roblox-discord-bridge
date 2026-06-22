@@ -1,7 +1,6 @@
 const express = require('express');
 const app = express();
 
-// This allows your server to read JSON data sent by your Discord Bot
 app.use(express.json());
 
 // Replace these with your actual Roblox details
