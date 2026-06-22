@@ -1,7 +1,6 @@
 const express = require('express');
 const app = express();
 
-// sigh
 app.use(express.json());
 
 // Replace these with your actual Roblox details
