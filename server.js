@@ -1,15 +1,3 @@
-const express = require('express');
-const app = express();
-
-// This allows your server to read JSON data sent by your Discord Bot
-app.use(express.json());
-
-// Replace these with your actual Roblox details
-const UNIVERSE_ID = process.env.ROBLOX_UNIVERSE_ID;
-const API_KEY = process.env.ROBLOX_API_KEY;
-const TOPIC_NAME = "DiscordAdminCommands";
-
-// This is the URL endpoint your Discord bot will send requests to
 app.post('/api/give', async (req, res) => {
     try {
         const { userId, dataType, quantity } = req.body;
@@ -18,9 +6,25 @@ app.post('/api/give', async (req, res) => {
             return res.status(400).json({ error: "Missing required fields" });
         }
 
-        // Send request to Roblox Open Cloud MessagingService
+        // ProfileStore puts global messages into an OrderedDataStore named: "M_" + your ProfileStore name
+        // Based on your code, your live profile store name is "Spellbound_V1"
+        const PROFILE_STORE_NAME = "Spellbound_V1"; 
+        const ORDERED_DATASTORE_NAME = `M_${PROFILE_STORE_NAME}`;
+        
+        // ProfileStore expects the key to look exactly like this for global messages
+        const ENTRY_KEY = `U_${userId}`;
+
+        // The payload ProfileStore expects must be JSON encoded inside an array
+        const messagePayload = [
+            {
+                DataType: dataType,
+                Quantity: Number(quantity)
+            }
+        ];
+
+        // Send directly to the ProfileStore global message queue via Open Cloud OrderedDataStores
         const robloxResponse = await fetch(
-            `https://apis.roblox.com/messaging-service/v1/universes/${UNIVERSE_ID}/topics/${TOPIC_NAME}`,
+            `https://apis.roblox.com/datastores/v1/universes/${UNIVERSE_ID}/ordered-datastores/${ORDERED_DATASTORE_NAME}/scopes/global/entries/${ENTRY_KEY}`,
             {
                 method: 'POST',
                 headers: {
@@ -28,31 +32,21 @@ app.post('/api/give', async (req, res) => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    message: JSON.stringify({
-                        TargetUserId: userId,
-                        DataType: dataType,
-                        Quantity: Number(quantity)
-                    })
+                    value: JSON.stringify(messagePayload)
                 })
             }
         );
 
         if (robloxResponse.ok) {
-            return res.status(200).json({ success: true, message: "Dispatched to Roblox successfully." });
+            return res.status(200).json({ success: true, message: "Gift queued in ProfileStore successfully." });
         } else {
             const errorText = await robloxResponse.text();
             console.error("Roblox API Error:", errorText);
-            return res.status(500).json({ error: "Roblox API rejected the message", details: errorText });
+            return res.status(500).json({ error: "ProfileStore rejected the message", details: errorText });
         }
 
     } catch (error) {
         console.error("Server Error:", error);
         return res.status(500).json({ error: "Internal server error" });
     }
-});
-
-// Start the webserver
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running smoothly on port ${PORT}`);
 });
